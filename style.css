@@ -1,0 +1,146 @@
+:root {
+  font-size: 20px;
+}
+
+body {
+  background: #333;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
+main {
+  background: #fff;
+  width: 80vw;
+  height: 80vh;
+  border-radius: 1rem;
+  display: grid;
+  place-items: center;
+}
+
+#table-container {
+  position: relative;
+}
+
+table {
+  border-collapse: collapse;
+  td, th {
+    text-align: center;
+    align-content: center;
+
+    width: 3rem;
+    height: 2rem;
+    box-sizing: border-box;
+    padding: 0;
+
+    border: .06rem solid #333;
+  }
+  [colspan="2"] { width: 6rem; }
+  [rowspan="2"] { height: 4rem; }
+  [colspan="3"] { width: 9rem; }
+  [rowspan="3"] { height: 6rem; }
+  [colspan="4"] { width: 12rem; }
+  [rowspan="4"] { height: 8rem; }
+}
+
+.tools {
+  z-index: 10;
+
+  display: flex;
+  gap: .1rem;
+  padding: .1rem;
+
+  color: gray;
+  border: .06rem solid lightgray;
+  border-radius: 0.25rem;
+
+  button {
+    color: inherit;
+    background: transparent;
+    padding: 0;
+    border: 0;
+
+    width: .8rem;
+    height: .8rem;
+    border-radius: .15rem;
+  }
+  button:hover {
+    background-color: lightgray;
+    cursor: pointer;
+  }
+  button:disabled {
+    color: lightgray;
+  }
+  button:disabled:hover {
+    background-color: transparent;
+    cursor: default;
+  }
+}
+[id$="tools"] {
+  position: absolute;
+
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0.3s ease, opacity 0.3s ease;
+}
+#row-tools {
+  left: -1.5rem;
+  writing-mode: vertical-lr;
+}
+#col-tools {
+  top: -1.5rem;
+}
+#handle-row:hover, #handle-col:hover {
+  cursor: grab;
+}
+
+#selection {
+  display: none;
+  position: absolute;
+  
+  pointer-events: none;
+  z-index: 5;
+
+  padding: 0.16rem;
+
+  border: .08rem solid deepskyblue;
+  /* border-radius: .2rem; */
+}
+
+/* textarea {
+  display: block;
+  resize: none;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 0;
+  outline: 0;
+
+  text-align: center;
+  align-content: center;
+  width: 3rem;
+  height: 2rem;
+
+  &.selected { border: 2px solid blue; }
+  &.editing { border: 2px solid lightblue; }
+} */
+
+/* 
+.column-add-button {
+  position: absolute;
+  z-index: 10;
+  transform: translate(-50%, -100%);
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid #333;
+  border-radius: 999px;
+  background: #fff;
+  color: #333;
+  font: inherit;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+ */
+/* .column-add-button:hover {
+  background: #f2f2f2;
+} */
