@@ -1,34 +1,39 @@
 const table = document.getElementById('table-container')
 const selectionEl = document.getElementById('selection')
-const rowTools = document.getElementById('row-tools')
-const colTools = document.getElementById('col-tools')
+
 const addRowBeforeButton = document.getElementById('add-row-before')
 const addRowAfterButton = document.getElementById('add-row-after')
 const addColBeforeButton = document.getElementById('add-col-before')
 const addColAfterButton = document.getElementById('add-col-after')
+const deleteRowButton = document.getElementById('delete-row')
+const deleteColButton = document.getElementById('delete-col')
 const mergeButton = document.getElementById('merge-button')
 const unmergeButton = document.getElementById('unmerge-button')
+const editClassButton = document.getElementById('edit-class')
+const buttons = [addRowBeforeButton, addRowAfterButton, addColBeforeButton, addColAfterButton, deleteRowButton, deleteColButton, mergeButton, unmergeButton, editClassButton]
 
-let cols = table.querySelector('tr')?.children.length || 0
-let rows = table.querySelectorAll('tr').length
-const selection = { 
-  active: false,
-  ongoing: false,
-  start: null,
-  end: null,
-  first: null,
-  last: null,
+let dummy = 9;
+
+function* range(start, end=null, step=1) { 
+  if (end === null) for (let i=0; i<start; i+=step) yield i 
+  else for (let i=start; i<end; i+=step) yield i
 }
 
+const rowCount = () => table.querySelectorAll('tr').length
+const colCount = () => rowCells(table.querySelector('tr')).reduce((n, c) => n+c.colSpan, 0)
+
+const rows = () => [...table.querySelectorAll('tr')]
+const rowCells = (row) => [...row.querySelectorAll('td, th')]
+
 const rowIndex = (cell) => {
-  return [...table.querySelectorAll('tr')].findIndex(r => r == cell.parentElement)
+  return rows().findIndex(r => r == cell.parentElement)
 }
 const colIndex = (cell) => {
   const emptyIndices = []
   const i = rowIndex(cell);
-  table.querySelectorAll('tr').forEach((row, ii) => {
+  rows().forEach((row, ii) => {
     if (ii >= i) return
-    row.querySelectorAll('td, th').forEach(c => {
+    rowCells(row).forEach(c => {
       if (c.rowSpan <= i-ii) return
       const jj = colIndex(c)
       for (const k of Array(c.colSpan).keys())
@@ -43,112 +48,129 @@ const colIndex = (cell) => {
   }
   return j
 }
-const updateSelection = () => {
-  if (!selection.active) {
-    selectionEl.style.display = 'none'
-    mergeButton.disabled = true
-    unmergeButton.disabled = true
-    return
-  }
-  selectionEl.style.display = 'block'
 
-  mergeButton.disabled = selection.start == selection.end
-  unmergeButton.disabled = selection.start != selection.end || (selection.start.rowSpan == 1 && selection.start.colSpan == 1)
-  
-  const starti = rowIndex(selection.start)
-  const startj = colIndex(selection.start)
-  const endi = rowIndex(selection.end)
-  const endj = colIndex(selection.end)
 
-  selection.first = {
-    row: Math.min(starti, endi),
-    col: Math.min(startj, endj),
+const rowMinMaxIndex = (i, aj=null, bj=null) => {
+  let min = i
+  let max = i
+  console.log('init:', i, aj, bj)
+  for (const [ri, r] of rows().entries()) {
+    if (ri > i) break
+    const imax = aj === null || bj === null 
+      ? Math.max(...rowCells(r).map(c => ri+c.rowSpan-1))
+      : Math.max(...rowCells(r).map(c => (cj => aj<=cj+c.colSpan-1 && cj<=bj ? ri+c.rowSpan-1 : 0)(colIndex(c)) ))
+    console.log('loop:', ri, r, rowCells(r).map(c => (cj => aj<=cj+c.colSpan-1 && cj<=bj ? ri+c.rowSpan-1 : 0)(colIndex(c)) ))
+    if (imax >= i && ri < min) min = ri
+    if (imax > max) max = imax
   }
-  selection.last = {
-    row: Math.max(starti + selection.start.rowSpan, endi + selection.end.rowSpan),
-    col: Math.max(startj + selection.start.colSpan, endj + selection.end.colSpan),
+  console.log('retn:', min, max)
+  return {min, max}
+}
+const colMinMaxIndex = (j, ai=null, bi=null) => {
+  let min = j
+  let max = j
+  // console.log('init:', j, ai, bi)
+  for (const [ri, r] of rows().entries()) {
+    for (const [cj, c] of rowCells(r).entries()) {
+      if (ai !== null && bi !== null && !(ai<=ri+c.rowSpan-1 && ri<=bi)) continue
+      // console.log('loop:', ri, r, cj, c, c.colSpan)
+      if (cj > j) break
+      if (cj+c.colSpan > j && cj < min) min = cj
+      if (cj+c.colSpan-1 > max) max = cj+c.colSpan-1
+    }
   }
-  selectionEl.style.left = `${selection.first.col*3-.20}rem`
-  selectionEl.style.top = `${selection.first.row*2-.20}rem`
-  selectionEl.style.width = `${(selection.last.col-selection.first.col)*3}rem`
-  selectionEl.style.height = `${(selection.last.row-selection.first.row)*2}rem`
+  // console.log('retn:', min, max)
+  return {min, max}
+}
+const rowHasBorders = (i, aj=null, bj=null) => {
+  const {min, max} = rowMinMaxIndex(i, aj, bj)
+  return {top: min == i, bottom: max == i}
+}
+const colHasBorders = (j, ai=null, bi=null) => {
+  const {min, max} = colMinMaxIndex(j, ai, bi)
+  return {left: min == j, right: max == j}
 }
 
 const createCell = (tag) => {
   const cell = document.createElement(tag)
-  bindShowButtons(cell)
+  cell.innerText = String(dummy++)
   bindSelectable(cell)
   return cell
 }
-const insertRow = (i, before) => {
-  if (selection.active) {
-    selection.active = false
-    updateSelection()
+
+const selection = { 
+  active: false,
+  ongoing: false,
+  start: null,
+  end: null,
+  first: { row: null, col: null },
+  last: { row: null, col: null },
+  update() {
+    if (!this.active) {
+      selectionEl.style.display = 'none'
+      buttons.forEach(b => b.disabled = true)
+      return
+    }
+
+    const si = rowIndex(this.start)
+    const sj = colIndex(this.start)
+    const ei = rowIndex(this.end)
+    const ej = colIndex(this.end)
+
+    const mini = Math.min(si, ei)
+    const minj = Math.min(sj, ej)
+    const maxi = Math.max(si+this.start.rowSpan, ei+this.end.rowSpan) - 1
+    const maxj = Math.max(sj+this.start.colSpan, ej+this.end.colSpan) - 1
+
+    this.first.row = [...range(mini+1)].findLast(i => rowHasBorders(i, minj, maxj).top)
+    this.last.row  = [...range(maxi, rowCount()+1)].find(i => rowHasBorders(i, minj, maxj).bottom)
+    this.first.col = [...range(minj+1)].findLast(j => colHasBorders(j, mini, maxi).left)
+    this.last.col  = [...range(maxj, colCount()+1)].find(j => colHasBorders(j, mini, maxi).right)
+
+    selectionEl.style.display = 'block'
+    selectionEl.style.left = `${this.first.col*3-.20}rem`
+    selectionEl.style.top = `${this.first.row*2-.20}rem`
+    selectionEl.style.width = `${(this.last.col-this.first.col+1)*3}rem`
+    selectionEl.style.height = `${(this.last.row-this.first.row+1)*2}rem`
+
+    const oneCellSelected = this.start === this.end
+    mergeButton.disabled = oneCellSelected
+    unmergeButton.disabled = !(oneCellSelected && (this.start.rowSpan != 1 || this.start.colSpan != 1))
+    addColAfterButton.disabled = !oneCellSelected
+    addColBeforeButton.disabled = !oneCellSelected
+    addRowAfterButton.disabled = !oneCellSelected
+    addRowBeforeButton.disabled = !oneCellSelected
+    deleteRowButton.disabled = !oneCellSelected
+    deleteColButton.disabled = !oneCellSelected
+    editClassButton.disabled = false
   }
-  const row = table.querySelectorAll('tr')[i]
+}
+
+const insertRow = (i) => {
   const newRow = document.createElement('tr')
-  for (let j=0; j<cols; j++) {
+  for (let j=0; j<colCount(); j++) {
     const newCell = createCell('td')
     newRow.appendChild(newCell)
   }
-  if (before)
-    row.parentElement.insertBefore(newRow, row)
-  else if (row.nextSibling) 
-    row.parentElement.insertBefore(newRow, row.nextSibling)
-  else 
-    row.parentElement.appendChild(newRow)
-  rows++
-}
-const insertColumn = (j, before) => {
-  if (selection.active) {
-    selection.active = false
-    updateSelection()
+  const allRows = rows()
+  if (i < allRows.length) {
+    const row = allRows[i]
+    row.insertAdjacentElement('beforebegin', newRow)
+  } else {
+    allRows[allRows.length-1].insertAdjacentElement('afterend', newRow)
   }
-  table.querySelectorAll('tr').forEach((row, i) => {
-    const cell = row.querySelectorAll('td, th')[j]
-    // findLast
-    const newCell = createCell(cell.tagName)
-    if (before)
-      row.insertBefore(newCell, cell)
-    else if (cell.nextSibling)
-      row.insertBefore(newCell, cell.nextSibling)
-    else 
-      row.appendChild(newCell)
+}
+const insertColumn = (j) => {
+  rows().forEach((row, i) => {
+    const cellAfter = rowCells(row).find(c => colIndex(c) >= j)
+    if (cellAfter)
+      cellAfter.insertAdjacentElement('beforebegin', createCell('td'))
+    else
+      row.appendChild(createCell('td'))
   })
-  cols++
 }
 
 
-const bindShowButtons = (cell) => cell.addEventListener('mouseenter', (e) => {
-  const tableRect = table.getBoundingClientRect()
-  const cellRect = cell.getBoundingClientRect()
-
-  const i = rowIndex(cell)
-  const j = colIndex(cell)
-
-  rowTools.disabled = false
-  rowTools.style.visibility = 'visible'
-  rowTools.style.opacity = '1'
-  rowTools.style.top = `${cellRect.top - tableRect.top + cellRect.height/2 - rowTools.offsetHeight/2}px`
-  rowTools.index = i
-
-  rowTools.disabled = false
-  colTools.style.visibility = 'visible'
-  colTools.style.opacity = '1'
-  colTools.style.left = `${cellRect.left - tableRect.left + cellRect.width/2 - colTools.offsetWidth/2}px`
-  colTools.index = j
-  
-  for (const row of table.querySelectorAll('tr')) {
-    let jj
-    const cc = [...row.querySelectorAll('td, th')].findLast(c => (jj = colIndex(c)) <= j)
-    if (!cc) continue
-    if (cc.colSpan > j-jj+1) {
-      console.log(cc, jj, j)
-      addColAfterButton.disabled = true
-      break
-    }
-  }
-})
 const bindSelectable = (cell) => {
   cell.addEventListener('mousedown', (e) => {
     e.preventDefault()
@@ -156,19 +178,18 @@ const bindSelectable = (cell) => {
     selection.ongoing = true
     selection.start = cell
     selection.end = cell
-    updateSelection()
+    selection.update()
   })
 
   cell.addEventListener('mouseenter', (e) => {
     if (!selection.ongoing) return
     selection.end = cell
-    updateSelection()
+    selection.update()
   })
 }
 
 
 table.querySelectorAll('td, th').forEach(cell => {
-  bindShowButtons(cell)
   bindSelectable(cell)
 });
 document.addEventListener('mouseup', () => {
@@ -177,50 +198,47 @@ document.addEventListener('mouseup', () => {
 document.addEventListener('click', (e) => {
   if (!table.contains(e.target)) {
     selection.active = false
-    updateSelection()
+    selection.update()
   }
 })
-document.getElementById('add-col-before').addEventListener('click', (e) => {
-  e.stopPropagation()
-  insertColumn(colTools.index, true)
-})
-document.getElementById('add-col-after').addEventListener('click', (e) => {
-  e.stopPropagation()
-  insertColumn(colTools.index, false)
-})
-document.getElementById('add-row-before').addEventListener('click', (e) => {
-  e.stopPropagation()
-  insertRow(rowTools.index, true)
-})
-document.getElementById('add-row-after').addEventListener('click', (e) => {
-  e.stopPropagation()
-  insertRow(rowTools.index, false)
-})
-table.addEventListener('mouseleave', () => {
-  setTimeout(() => {
-    if (!table.matches(':hover')) {
-      rowTools.style.visibility = 'hidden'
-      rowTools.style.opacity = '0'
-      colTools.style.visibility = 'hidden'
-      colTools.style.opacity = '0'
-    }
-  }, 300)
-})
 
+
+addColBeforeButton.addEventListener('click', (e) => {
+  e.stopPropagation()
+  insertColumn(selection.first.col)
+  selection.start.col += 1
+  selection.end.col += 1
+  selection.update()
+})
+addColAfterButton.addEventListener('click', (e) => {
+  e.stopPropagation()
+  insertColumn(selection.last.col+1)
+})
+addRowBeforeButton.addEventListener('click', (e) => {
+  e.stopPropagation()
+  insertRow(selection.first.row)
+  selection.start.row += 1
+  selection.end.row += 1
+  selection.update()
+})
+addRowAfterButton.addEventListener('click', (e) => {
+  e.stopPropagation()
+  insertRow(selection.last.row+1)
+})
 
 mergeButton.addEventListener('click', () => {
   if (!selection.active) return
   selection.active = false
-  updateSelection()
+  selection.update()
 
   const cells = [...table.querySelectorAll('td, th')].filter(cell => {
     const i = rowIndex(cell)
     const j = colIndex(cell)
-    return (i >= selection.first.row && i < selection.last.row
-         && j >= selection.first.col && j < selection.last.col)
+    return (selection.first.row <= i && i <= selection.last.row
+         && selection.first.col <= j && j <= selection.last.col)
   })
-  cells[0].setAttribute('rowspan', selection.last.row-selection.first.row)
-  cells[0].setAttribute('colspan', selection.last.col-selection.first.col)
+  cells[0].setAttribute('rowspan', selection.last.row-selection.first.row+1)
+  cells[0].setAttribute('colspan', selection.last.col-selection.first.col+1)
   for (let i=1; i<cells.length; i++) {
     cells[i].remove()
   }
@@ -229,7 +247,7 @@ mergeButton.addEventListener('click', () => {
 unmergeButton.addEventListener('click', () => {
   if (!selection.active) return
   selection.active = false
-  updateSelection()
+  selection.update()
   
   const cell = selection.start
   const colspan = cell.colSpan
@@ -242,16 +260,26 @@ unmergeButton.addEventListener('click', () => {
   if (j === 0) {
     for (const _ of Array(cell.rowSpan-1)) {
       row = row.nextElementSibling
-      for (const _ of Array(colspan)) 
-        row.firstElementChild.insertAdjacentElement('beforebegin', createCell(cell.tagName))
+      const firstCell = row.firstElementChild
+      if (firstCell) {
+        for (const _ of Array(colspan))
+          firstCell.insertAdjacentElement('beforebegin', createCell(cell.tagName))
+      } else {
+        for (const _ of Array(colspan))
+          row.appendChild(createCell(cell.tagName))
+      }
     }
   } else {
     const cellsBefore = []
     for (const _ of Array(cell.rowSpan-1)) {
       row = row.nextElementSibling
-      for (const _ of Array(colspan)) {
-        const cellAfter = [...cell.querySelectorAll('td, th')].find(c => colIndex(c) > j)
-        cellsBefore.push(cellAfter?.previousElementSibling ?? row.lastElementChild)
+      const cellBefore = rowCells(row).findLast(c => colIndex(c) <= j)
+      if (cellBefore) {
+        for (const _ of Array(colspan))
+          cellsBefore.push(cellBefore)
+      } else {
+        for (const _ of Array(colspan))
+          row.appendChild(createCell(cell.tagName))
       }
     }
     cellsBefore.forEach(c => { c.insertAdjacentElement('afterend', createCell(cell.tagName)) })

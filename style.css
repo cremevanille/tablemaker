@@ -1,5 +1,6 @@
 :root {
   font-size: 20px;
+  font-family: sans-serif;
 }
 
 body {
@@ -43,7 +44,7 @@ table {
   [rowspan="4"] { height: 8rem; }
 }
 
-.tools {
+#tools {
   z-index: 10;
 
   display: flex;
@@ -56,12 +57,12 @@ table {
 
   button {
     color: inherit;
+    font: inherit;
+    font-size: .8rem;
     background: transparent;
-    padding: 0;
+    padding: .2rem;
     border: 0;
 
-    width: .8rem;
-    height: .8rem;
     border-radius: .15rem;
   }
   button:hover {
@@ -75,23 +76,6 @@ table {
     background-color: transparent;
     cursor: default;
   }
-}
-[id$="tools"] {
-  position: absolute;
-
-  visibility: hidden;
-  opacity: 0;
-  transition: visibility 0.3s ease, opacity 0.3s ease;
-}
-#row-tools {
-  left: -1.5rem;
-  writing-mode: vertical-lr;
-}
-#col-tools {
-  top: -1.5rem;
-}
-#handle-row:hover, #handle-col:hover {
-  cursor: grab;
 }
 
 #selection {
