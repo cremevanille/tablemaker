@@ -28,7 +28,11 @@ const rowCells = (row) => [...row.querySelectorAll('td, th')]
 const rowIndex = (cell) => {
   return rows().findIndex(r => r == cell.parentElement)
 }
+const colIndexCache = new Map()
 const colIndex = (cell) => {
+  const cache = colIndexCache.get(cell)
+  if (cache !== undefined) return cache
+
   const emptyIndices = []
   const i = rowIndex(cell);
   rows().forEach((row, ii) => {
@@ -40,38 +44,37 @@ const colIndex = (cell) => {
         emptyIndices.push(jj+k)
     })
   })
-  let j = 0
+  let j=0
   for (const c of cell.parentElement.querySelectorAll('td, th')) {
     while (emptyIndices.includes(j)) j++
     if (c === cell) break
     j += c.colSpan
   }
+  colIndexCache.set(cell, j)
   return j
 }
 
-
 const rowMinMaxIndex = (i, aj=null, bj=null) => {
-  let min = i
-  let max = i
-  console.log('init:', i, aj, bj)
+  let min=i, max=i
+  // console.log('init:', i, aj, bj)
   for (const [ri, r] of rows().entries()) {
     if (ri > i) break
     const imax = aj === null || bj === null 
       ? Math.max(...rowCells(r).map(c => ri+c.rowSpan-1))
-      : Math.max(...rowCells(r).map(c => (cj => aj<=cj+c.colSpan-1 && cj<=bj ? ri+c.rowSpan-1 : 0)(colIndex(c)) ))
-    console.log('loop:', ri, r, rowCells(r).map(c => (cj => aj<=cj+c.colSpan-1 && cj<=bj ? ri+c.rowSpan-1 : 0)(colIndex(c)) ))
+      : Math.max(...rowCells(r).map(c => aj<=colIndex(c)+c.colSpan-1 && colIndex(c)<=bj ? ri+c.rowSpan-1 : 0))
+    // console.log('loop:', ri, r, rowCells(r).map(c => (cj => aj<=cj+c.colSpan-1 && cj<=bj ? ri+c.rowSpan-1 : 0)(colIndex(c)) ))
     if (imax >= i && ri < min) min = ri
     if (imax > max) max = imax
   }
-  console.log('retn:', min, max)
+  // console.log('retn:', min, max)
   return {min, max}
 }
 const colMinMaxIndex = (j, ai=null, bi=null) => {
-  let min = j
-  let max = j
+  let min=j, max=j
   // console.log('init:', j, ai, bi)
   for (const [ri, r] of rows().entries()) {
-    for (const [cj, c] of rowCells(r).entries()) {
+    for (const c of rowCells(r)) {
+      const cj = colIndex(c)
       if (ai !== null && bi !== null && !(ai<=ri+c.rowSpan-1 && ri<=bi)) continue
       // console.log('loop:', ri, r, cj, c, c.colSpan)
       if (cj > j) break
@@ -84,27 +87,30 @@ const colMinMaxIndex = (j, ai=null, bi=null) => {
 }
 const rowHasBorders = (i, aj=null, bj=null) => {
   const {min, max} = rowMinMaxIndex(i, aj, bj)
+  // console.log('rowb:', i, aj, bj, min==i, max==i)
   return {top: min == i, bottom: max == i}
 }
 const colHasBorders = (j, ai=null, bi=null) => {
   const {min, max} = colMinMaxIndex(j, ai, bi)
+  // console.log('colb:', j, ai, bi, min==j, max==j)
   return {left: min == j, right: max == j}
 }
 
-const createCell = (tag) => {
-  const cell = document.createElement(tag)
-  cell.innerText = String(dummy++)
-  bindSelectable(cell)
-  return cell
-}
+const topBorder =    (i, aj, bj) => [...range(i+1)].findLast(ii => rowHasBorders(ii, aj, bj).top)
+const leftBorder =   (j, ai, bi) => [...range(j+1)].findLast(jj => colHasBorders(jj, ai, bi).left)
+const bottomBorder = (i, aj, bj) => [...range(i, rowCount())].find(ii => rowHasBorders(ii, aj, bj).bottom)
+const rightBorder =  (j, ai, bi) => [...range(j, colCount())].find(jj => colHasBorders(jj, ai, bi).right)
 
 const selection = { 
   active: false,
   ongoing: false,
   start: null,
   end: null,
-  first: { row: null, col: null },
-  last: { row: null, col: null },
+  firstRow: null,
+  firstCol: null,
+  lastRow: null,
+  lastCol: null,
+  cells: [],
   update() {
     if (!this.active) {
       selectionEl.style.display = 'none'
@@ -122,29 +128,84 @@ const selection = {
     const maxi = Math.max(si+this.start.rowSpan, ei+this.end.rowSpan) - 1
     const maxj = Math.max(sj+this.start.colSpan, ej+this.end.colSpan) - 1
 
-    this.first.row = [...range(mini+1)].findLast(i => rowHasBorders(i, minj, maxj).top)
-    this.last.row  = [...range(maxi, rowCount()+1)].find(i => rowHasBorders(i, minj, maxj).bottom)
-    this.first.col = [...range(minj+1)].findLast(j => colHasBorders(j, mini, maxi).left)
-    this.last.col  = [...range(maxj, colCount()+1)].find(j => colHasBorders(j, mini, maxi).right)
+    let nextFirstRow = topBorder(mini, minj, maxj)
+    let nextFirstCol = leftBorder(minj, mini, maxi)
+    let nextLastRow  = bottomBorder(maxi, minj, maxj)
+    let nextLastCol  = rightBorder(maxj, mini, maxi)
+    while (
+         this.firstRow != (nextFirstRow = topBorder(mini, nextFirstCol, nextLastCol)) 
+      || this.firstCol != (nextFirstCol = leftBorder(minj, nextFirstRow, nextLastRow))
+      || this.lastRow  != (nextLastRow  = bottomBorder(maxi, nextFirstCol, nextLastCol))
+      || this.lastCol  != (nextLastCol  = rightBorder(maxj, nextFirstRow, nextLastRow))
+    ) {
+      this.firstRow = nextFirstRow
+      this.firstCol = nextFirstCol
+      this.lastRow  = nextLastRow
+      this.lastCol  = nextLastCol
+    }
 
     selectionEl.style.display = 'block'
-    selectionEl.style.left = `${this.first.col*3-.20}rem`
-    selectionEl.style.top = `${this.first.row*2-.20}rem`
-    selectionEl.style.width = `${(this.last.col-this.first.col+1)*3}rem`
-    selectionEl.style.height = `${(this.last.row-this.first.row+1)*2}rem`
+    selectionEl.style.left    = `${this.firstCol*3-.20}rem`
+    selectionEl.style.top     = `${this.firstRow*2-.20}rem`
+    selectionEl.style.width   = `${(this.lastCol-this.firstCol+1)*3}rem`
+    selectionEl.style.height  = `${(this.lastRow-this.firstRow+1)*2}rem`
+
+    this.cells = rows().reduce(
+      (cs, r, ri) => cs.concat(selection.firstRow<=ri && ri<=selection.lastRow
+        ? rowCells(r).filter(c => selection.firstCol<=colIndex(c) && colIndex(c)<=selection.lastCol)
+        : []
+      ), []
+    )
 
     const oneCellSelected = this.start === this.end
     mergeButton.disabled = oneCellSelected
-    unmergeButton.disabled = !(oneCellSelected && (this.start.rowSpan != 1 || this.start.colSpan != 1))
-    addColAfterButton.disabled = !oneCellSelected
+    unmergeButton.disabled = this.cells.find(c => c.rowSpan!=1 || c.colSpan!=1) === undefined
+    addColAfterButton.disabled =  !oneCellSelected
     addColBeforeButton.disabled = !oneCellSelected
-    addRowAfterButton.disabled = !oneCellSelected
+    addRowAfterButton.disabled =  !oneCellSelected
     addRowBeforeButton.disabled = !oneCellSelected
-    deleteRowButton.disabled = !oneCellSelected
-    deleteColButton.disabled = !oneCellSelected
+    deleteRowButton.disabled =    !oneCellSelected
+    deleteColButton.disabled =    !oneCellSelected
     editClassButton.disabled = false
   }
 }
+
+const bindSelectable = (cell) => {
+  cell.addEventListener('mousedown', (e) => {
+    e.preventDefault()
+    selection.active = true
+    selection.ongoing = true
+    selection.start = cell
+    selection.end = cell
+    selection.update()
+  })
+
+  cell.addEventListener('mouseenter', (e) => {
+    if (!selection.ongoing) return
+    selection.end = cell
+    selection.update()
+  })
+}
+
+table.querySelectorAll('td, th').forEach(bindSelectable)
+const createCell = (tag) => {
+  const cell = document.createElement(tag)
+  cell.innerText = String(dummy++)
+  bindSelectable(cell)
+  return cell
+}
+
+
+document.addEventListener('mouseup', () => {
+  selection.ongoing = false
+})
+document.addEventListener('click', (e) => {
+  if (!table.contains(e.target)) {
+    selection.active = false
+    selection.update()
+  }
+})
+
 
 const insertRow = (i) => {
   const newRow = document.createElement('tr')
@@ -170,88 +231,56 @@ const insertColumn = (j) => {
   })
 }
 
-
-const bindSelectable = (cell) => {
-  cell.addEventListener('mousedown', (e) => {
-    e.preventDefault()
-    selection.active = true
-    selection.ongoing = true
-    selection.start = cell
-    selection.end = cell
-    selection.update()
-  })
-
-  cell.addEventListener('mouseenter', (e) => {
-    if (!selection.ongoing) return
-    selection.end = cell
-    selection.update()
-  })
-}
-
-
-table.querySelectorAll('td, th').forEach(cell => {
-  bindSelectable(cell)
-});
-document.addEventListener('mouseup', () => {
-  selection.ongoing = false
-})
-document.addEventListener('click', (e) => {
-  if (!table.contains(e.target)) {
-    selection.active = false
-    selection.update()
-  }
-})
-
-
 addColBeforeButton.addEventListener('click', (e) => {
   e.stopPropagation()
-  insertColumn(selection.first.col)
   selection.start.col += 1
   selection.end.col += 1
   selection.update()
+  colIndexCache.clear()
+
+  insertColumn(selection.firstCol)
 })
 addColAfterButton.addEventListener('click', (e) => {
   e.stopPropagation()
-  insertColumn(selection.last.col+1)
+  colIndexCache.clear()
+
+  insertColumn(selection.lastCol+1)
 })
 addRowBeforeButton.addEventListener('click', (e) => {
   e.stopPropagation()
-  insertRow(selection.first.row)
   selection.start.row += 1
   selection.end.row += 1
   selection.update()
+  colIndexCache.clear()
+
+  insertRow(selection.firstRow)
 })
 addRowAfterButton.addEventListener('click', (e) => {
   e.stopPropagation()
-  insertRow(selection.last.row+1)
+
+  insertRow(selection.lastRow+1)
+  colIndexCache.clear()
 })
 
 mergeButton.addEventListener('click', () => {
-  if (!selection.active) return
   selection.active = false
   selection.update()
 
   const cells = [...table.querySelectorAll('td, th')].filter(cell => {
     const i = rowIndex(cell)
     const j = colIndex(cell)
-    return (selection.first.row <= i && i <= selection.last.row
-         && selection.first.col <= j && j <= selection.last.col)
+    return (selection.firstRow <= i && i <= selection.lastRow
+         && selection.firstCol <= j && j <= selection.lastCol)
   })
-  cells[0].setAttribute('rowspan', selection.last.row-selection.first.row+1)
-  cells[0].setAttribute('colspan', selection.last.col-selection.first.col+1)
-  for (let i=1; i<cells.length; i++) {
-    cells[i].remove()
-  }
+  cells[0].setAttribute('rowspan', selection.lastRow-selection.firstRow+1)
+  cells[0].setAttribute('colspan', selection.lastCol-selection.firstCol+1)
+  cells.slice(1).forEach(c => c.remove())
+  colIndexCache.clear()
 })
 
-unmergeButton.addEventListener('click', () => {
-  if (!selection.active) return
-  selection.active = false
-  selection.update()
-  
-  const cell = selection.start
-  const colspan = cell.colSpan
-  for (const _ of Array(colspan-1)) {
+const unmerge = (cell) => {
+  if (cell.rowSpan==1 && cell.colSpan==1) return
+  for (const _ of Array(cell.colSpan-1)) {
     cell.insertAdjacentElement('afterend', createCell(cell.tagName))
   }
 
@@ -262,10 +291,10 @@ unmergeButton.addEventListener('click', () => {
       row = row.nextElementSibling
       const firstCell = row.firstElementChild
       if (firstCell) {
-        for (const _ of Array(colspan))
+        for (const _ of Array(cell.colSpan))
           firstCell.insertAdjacentElement('beforebegin', createCell(cell.tagName))
       } else {
-        for (const _ of Array(colspan))
+        for (const _ of Array(cell.colSpan))
           row.appendChild(createCell(cell.tagName))
       }
     }
@@ -275,10 +304,10 @@ unmergeButton.addEventListener('click', () => {
       row = row.nextElementSibling
       const cellBefore = rowCells(row).findLast(c => colIndex(c) <= j)
       if (cellBefore) {
-        for (const _ of Array(colspan))
+        for (const _ of Array(cell.colSpan))
           cellsBefore.push(cellBefore)
       } else {
-        for (const _ of Array(colspan))
+        for (const _ of Array(cell.colSpan))
           row.appendChild(createCell(cell.tagName))
       }
     }
@@ -286,4 +315,11 @@ unmergeButton.addEventListener('click', () => {
   }
   cell.rowSpan = 1
   cell.colSpan = 1
+}
+unmergeButton.addEventListener('click', () => {
+  selection.active = false
+  selection.update()
+
+  selection.cells.forEach(unmerge)
+  colIndexCache.clear()
 })

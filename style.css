@@ -1,12 +1,12 @@
 :root {
   font-size: 20px;
   font-family: sans-serif;
+
 }
 
 body {
   background: #333;
-  width: 100vw;
-  height: 100vh;
+  margin: 2rem;
   display: grid;
   place-items: center;
 }
@@ -14,15 +14,46 @@ main {
   background: #fff;
   width: 80vw;
   height: 80vh;
-  border-radius: 1rem;
+  border-radius: .5rem;
+
   display: grid;
+  grid-template-rows: 5rem 1fr;
   place-items: center;
 }
 
-#table-container {
-  position: relative;
+header {
+  z-index: 10;
+
+  display: flex;
+  gap: .1rem;
+  padding: .1rem;
+
+  color: gray;
+  border: .06rem solid lightgray;
+  border-radius: 0.25rem;
+
+  button {
+    color: inherit;
+    font: inherit;
+    font-size: .8rem;
+    background: transparent;
+
+    width: 1.5rem;
+    padding: .2rem;
+    border: 0;
+
+    border-radius: .15rem;
+    &:disabled {
+      color: lightgray;
+    }
+    &:hover:not(:disabled) {
+      background-color: lightgray;
+      cursor: pointer;
+    }
+  }
 }
 
+#table-container { position: relative; }
 table {
   border-collapse: collapse;
   td, th {
@@ -44,51 +75,14 @@ table {
   [rowspan="4"] { height: 8rem; }
 }
 
-#tools {
-  z-index: 10;
-
-  display: flex;
-  gap: .1rem;
-  padding: .1rem;
-
-  color: gray;
-  border: .06rem solid lightgray;
-  border-radius: 0.25rem;
-
-  button {
-    color: inherit;
-    font: inherit;
-    font-size: .8rem;
-    background: transparent;
-    padding: .2rem;
-    border: 0;
-
-    border-radius: .15rem;
-  }
-  button:hover {
-    background-color: lightgray;
-    cursor: pointer;
-  }
-  button:disabled {
-    color: lightgray;
-  }
-  button:disabled:hover {
-    background-color: transparent;
-    cursor: default;
-  }
-}
-
 #selection {
   display: none;
   position: absolute;
   
   pointer-events: none;
-  z-index: 5;
 
   padding: 0.16rem;
-
   border: .08rem solid deepskyblue;
-  /* border-radius: .2rem; */
 }
 
 /* textarea {
