@@ -1,5 +1,7 @@
+const header = document.querySelector('header')
 const table = document.getElementById('table-container')
 const selectionEl = document.getElementById('selection')
+const textInput = document.getElementById('text-input')
 
 const addRowBeforeButton = document.getElementById('add-row-before')
 const addRowAfterButton = document.getElementById('add-row-after')
@@ -9,8 +11,9 @@ const deleteRowButton = document.getElementById('delete-row')
 const deleteColButton = document.getElementById('delete-col')
 const mergeButton = document.getElementById('merge-button')
 const unmergeButton = document.getElementById('unmerge-button')
+const headSwitch = document.getElementById('head-switch')
 const editClassButton = document.getElementById('edit-class')
-const buttons = [addRowBeforeButton, addRowAfterButton, addColBeforeButton, addColAfterButton, deleteRowButton, deleteColButton, mergeButton, unmergeButton, editClassButton]
+const copyHtmlButton = document.getElementById('copy-html')
 
 let dummy = 9;
 
@@ -22,6 +25,7 @@ function* range(start, end=null, step=1) {
 const rowCount = () => table.querySelectorAll('tr').length
 const colCount = () => rowCells(table.querySelector('tr')).reduce((n, c) => n+c.colSpan, 0)
 
+const cells = () => [...table.querySelectorAll('td, th')]
 const rows = () => [...table.querySelectorAll('tr')]
 const rowCells = (row) => [...row.querySelectorAll('td, th')]
 
@@ -113,35 +117,48 @@ const selection = {
   cells: [],
   update() {
     if (!this.active) {
-      selectionEl.style.display = 'none'
-      buttons.forEach(b => b.disabled = true)
+      selectionEl.style.display = 'none';
+      addRowBeforeButton.disabled = true
+      addRowAfterButton.disabled = true
+      addColBeforeButton.disabled = true
+      addColAfterButton.disabled = true
+      deleteRowButton.disabled = true
+      deleteColButton.disabled = true
+      mergeButton.disabled = true
+      unmergeButton.disabled = true
+      headSwitch.disabled = true
+      editClassButton.disabled = true
       return
     }
 
-    const si = rowIndex(this.start)
-    const sj = colIndex(this.start)
-    const ei = rowIndex(this.end)
-    const ej = colIndex(this.end)
+    if (this.start == this.end) {
+      this.firstRow = rowIndex(this.start)
+      this.lastRow = this.firstRow+this.start.rowSpan-1
+      this.firstCol = colIndex(this.start)
+      this.lastCol = this.firstCol+this.start.colSpan-1
+    } else {
+      const si = rowIndex(this.start)
+      const sj = colIndex(this.start)
+      const ei = rowIndex(this.end)
+      const ej = colIndex(this.end)
 
-    const mini = Math.min(si, ei)
-    const minj = Math.min(sj, ej)
-    const maxi = Math.max(si+this.start.rowSpan, ei+this.end.rowSpan) - 1
-    const maxj = Math.max(sj+this.start.colSpan, ej+this.end.colSpan) - 1
+      const mini = Math.min(si, ei)
+      const minj = Math.min(sj, ej)
+      const maxi = Math.max(si+this.start.rowSpan, ei+this.end.rowSpan) - 1
+      const maxj = Math.max(sj+this.start.colSpan, ej+this.end.colSpan) - 1
 
-    let nextFirstRow = topBorder(mini, minj, maxj)
-    let nextFirstCol = leftBorder(minj, mini, maxi)
-    let nextLastRow  = bottomBorder(maxi, minj, maxj)
-    let nextLastCol  = rightBorder(maxj, mini, maxi)
-    while (
-         this.firstRow != (nextFirstRow = topBorder(mini, nextFirstCol, nextLastCol)) 
-      || this.firstCol != (nextFirstCol = leftBorder(minj, nextFirstRow, nextLastRow))
-      || this.lastRow  != (nextLastRow  = bottomBorder(maxi, nextFirstCol, nextLastCol))
-      || this.lastCol  != (nextLastCol  = rightBorder(maxj, nextFirstRow, nextLastRow))
-    ) {
-      this.firstRow = nextFirstRow
-      this.firstCol = nextFirstCol
-      this.lastRow  = nextLastRow
-      this.lastCol  = nextLastCol
+      let nextFirstRow, nextFirstCol, nextLastRow, nextLastCol
+      while (
+          this.firstRow != (nextFirstRow = topBorder(mini, nextFirstCol, nextLastCol)) 
+        || this.firstCol != (nextFirstCol = leftBorder(minj, nextFirstRow, nextLastRow))
+        || this.lastRow  != (nextLastRow  = bottomBorder(maxi, nextFirstCol, nextLastCol))
+        || this.lastCol  != (nextLastCol  = rightBorder(maxj, nextFirstRow, nextLastRow))
+      ) {
+        this.firstRow = nextFirstRow
+        this.firstCol = nextFirstCol
+        this.lastRow  = nextLastRow
+        this.lastCol  = nextLastCol
+      }
     }
 
     selectionEl.style.display = 'block'
@@ -157,55 +174,82 @@ const selection = {
       ), []
     )
 
-    const oneCellSelected = this.start === this.end
-    mergeButton.disabled = oneCellSelected
+    mergeButton.disabled = this.start === this.end
     unmergeButton.disabled = this.cells.find(c => c.rowSpan!=1 || c.colSpan!=1) === undefined
-    addColAfterButton.disabled =  !oneCellSelected
-    addColBeforeButton.disabled = !oneCellSelected
-    addRowAfterButton.disabled =  !oneCellSelected
-    addRowBeforeButton.disabled = !oneCellSelected
-    deleteRowButton.disabled =    !oneCellSelected
-    deleteColButton.disabled =    !oneCellSelected
-    editClassButton.disabled = false
+    addColAfterButton.disabled =  false
+    addColBeforeButton.disabled = false
+    addRowAfterButton.disabled =  false
+    addRowBeforeButton.disabled = false
+    deleteRowButton.disabled =    false
+    deleteColButton.disabled =    false
+    headSwitch.disabled =         false
+    editClassButton.disabled =    false
   }
 }
 
-const bindSelectable = (cell) => {
+const setCellListeners = (cell) => {
+  const setEditable = () => {
+    selection.ongoing = false
+    cell.contentEditable = true
+    cell.focus()
+  }
+
   cell.addEventListener('mousedown', (e) => {
-    e.preventDefault()
-    selection.active = true
+
+    if (e.altKey && selection.active) {
+      // multi selection !!
+    }
+
+    cell.addEventListener('mouseup', setEditable)
+
+    selection.active = false
     selection.ongoing = true
-    selection.start = cell
-    selection.end = cell
     selection.update()
+    setTimeout(() => {
+      cell.removeEventListener('mouseup', setEditable)
+      if (selection.ongoing) {
+        cell.contentEditable = false
+        selection.active = true
+        selection.start = cell
+        const hoveredElement = [...document.querySelectorAll(':hover')].pop()
+        selection.end = ['TD', 'TH'].includes(hoveredElement?.tagName) ? hoveredElement : cell
+        selection.update()
+      }
+    }, 300)
   })
 
-  cell.addEventListener('mouseenter', (e) => {
+  cell.addEventListener('dblclick', () => {
+      selection.active = false
+      selection.ongoing = false
+      selection.update()
+      cell.contentEditable = true
+      cell.focus()
+
+      const docRange = document.createRange();
+      docRange.selectNodeContents(cell);
+      const winSelection = window.getSelection();
+      winSelection.removeAllRanges();
+      winSelection.addRange(docRange);
+  })
+
+  cell.addEventListener('mouseenter', () => {
     if (!selection.ongoing) return
     selection.end = cell
     selection.update()
   })
-}
 
-table.querySelectorAll('td, th').forEach(bindSelectable)
+  cell.addEventListener('blur', () => {
+    cell.contentEditable = false
+  })
+}
+cells().forEach(setCellListeners)
+
 const createCell = (tag) => {
   const cell = document.createElement(tag)
   cell.innerText = String(dummy++)
-  bindSelectable(cell)
+  setCellListeners(cell)
   return cell
 }
-
-
-document.addEventListener('mouseup', () => {
-  selection.ongoing = false
-})
-document.addEventListener('click', (e) => {
-  if (!table.contains(e.target)) {
-    selection.active = false
-    selection.update()
-  }
-})
-
 
 const insertRow = (i) => {
   const newRow = document.createElement('tr')
@@ -231,54 +275,83 @@ const insertColumn = (j) => {
   })
 }
 
-addColBeforeButton.addEventListener('click', (e) => {
-  e.stopPropagation()
-  selection.start.col += 1
-  selection.end.col += 1
-  selection.update()
-  colIndexCache.clear()
-
+const addColBeforeEvent = (e) => {
+  if (e) e.stopPropagation()
   insertColumn(selection.firstCol)
-})
-addColAfterButton.addEventListener('click', (e) => {
-  e.stopPropagation()
   colIndexCache.clear()
-
-  insertColumn(selection.lastCol+1)
-})
-addRowBeforeButton.addEventListener('click', (e) => {
-  e.stopPropagation()
-  selection.start.row += 1
-  selection.end.row += 1
   selection.update()
+}
+addColBeforeButton.addEventListener('click', addColBeforeEvent)
+
+const addColAfterEvent = (e) => {
+  if (e) e.stopPropagation()
+  insertColumn(selection.lastCol+1)
   colIndexCache.clear()
+}
+addColAfterButton.addEventListener('click', addColAfterEvent)
 
+const addRowBeforeEvent = (e) => {
+  if (e) e.stopPropagation()
   insertRow(selection.firstRow)
-})
-addRowAfterButton.addEventListener('click', (e) => {
-  e.stopPropagation()
+  colIndexCache.clear()
+  selection.update()
+}
+addRowBeforeButton.addEventListener('click', addRowBeforeEvent)
 
+const addRowAfterEvent = (e) => {
+  if (e) e.stopPropagation()
   insertRow(selection.lastRow+1)
   colIndexCache.clear()
-})
+}
+addRowAfterButton.addEventListener('click', addRowAfterEvent)
 
-mergeButton.addEventListener('click', () => {
+const deleteRowEvent = (e) => {
+  if (e) e.stopPropagation()
+  const deletedCells = cells().filter(c => {
+    const i = rowIndex(c)
+    return selection.firstRow <= i && i <= selection.lastRow
+  })
+  deletedCells.forEach(c => c.remove())
+
+  selection.active = false
+  // colIndexCache.clear()
+  selection.update()
+}
+deleteRowButton.addEventListener('click', deleteRowEvent)
+
+const deleteColEvent = (e) => {
+  if (e) e.stopPropagation()
+  const deletedCells = cells().filter(c => {
+    const j = colIndex(c)
+    return selection.firstCol <= j && j <= selection.lastCol
+  })
+  deletedCells.forEach(c => c.remove())
+
+  selection.active = false
+  colIndexCache.clear()
+  selection.update()
+}
+deleteColButton.addEventListener('click', deleteColEvent)
+
+const mergeEvent = (e) => {
+  if (e) e.stopPropagation()
   selection.active = false
   selection.update()
 
-  const cells = [...table.querySelectorAll('td, th')].filter(cell => {
-    const i = rowIndex(cell)
-    const j = colIndex(cell)
+  const mergedCells = cells().filter(c=> {
+    const i = rowIndex(c)
+    const j = colIndex(c)
     return (selection.firstRow <= i && i <= selection.lastRow
          && selection.firstCol <= j && j <= selection.lastCol)
   })
-  cells[0].setAttribute('rowspan', selection.lastRow-selection.firstRow+1)
-  cells[0].setAttribute('colspan', selection.lastCol-selection.firstCol+1)
-  cells.slice(1).forEach(c => c.remove())
+  mergedCells[0].setAttribute('rowspan', selection.lastRow-selection.firstRow+1)
+  mergedCells[0].setAttribute('colspan', selection.lastCol-selection.firstCol+1)
+  mergedCells.slice(1).forEach(c => c.remove())
   colIndexCache.clear()
-})
+}
+mergeButton.addEventListener('click', mergeEvent)
 
-const unmerge = (cell) => {
+const unmergeCell = (cell) => {
   if (cell.rowSpan==1 && cell.colSpan==1) return
   for (const _ of Array(cell.colSpan-1)) {
     cell.insertAdjacentElement('afterend', createCell(cell.tagName))
@@ -316,10 +389,112 @@ const unmerge = (cell) => {
   cell.rowSpan = 1
   cell.colSpan = 1
 }
-unmergeButton.addEventListener('click', () => {
+const unmergeEvent = (e) => {
+  if (e) e.stopPropagation()
   selection.active = false
   selection.update()
 
-  selection.cells.forEach(unmerge)
+  selection.cells.forEach(unmergeCell)
   colIndexCache.clear()
+}
+unmergeButton.addEventListener('click', unmergeEvent)
+
+const headSwitchEvent = (e) => {
+  if (e) e.stopPropagation()
+  const allHeads = selection.cells.every(c => c.tagName == 'TH')
+  if (allHeads) {
+    selection.cells.forEach(cell => {
+      const newCell = createCell('TD')
+      newCell.textContent = cell.textContent
+      cell.parentElement.replaceChild(newCell, cell)
+    })
+  } else {
+    selection.cells.forEach(cell => {
+      if (cell.tagName == 'TH') return
+      const newCell = createCell('TH')
+      newCell.textContent = cell.textContent
+      cell.parentElement.replaceChild(newCell, cell)
+    })
+  }
+
+  // update selection cells
+  selection.cells = rows().reduce(
+    (cs, r, ri) => cs.concat(selection.firstRow<=ri && ri<=selection.lastRow
+      ? rowCells(r).filter(c => selection.firstCol<=colIndex(c) && colIndex(c)<=selection.lastCol)
+      : []
+    ), []
+  )
+  selection.start = selection.cells[0]
+  selection.end = selection.cells[selection.cells.length-1]
+}
+headSwitch.addEventListener('click', headSwitchEvent)
+
+const validateEditClass = (e) => {
+  if (e.keyCode !== 13) return
+
+  selection.start.className = textInput.value
+  textInput.value = 0
+  textInput.hidden = true
+  document.removeEventListener('keydown', validateEditClass);
+}
+const editClassEvent = (e) => {
+  if (e) e.stopPropagation()
+  textInput.hidden = false
+  textInput.value = selection.start.className
+  textInput.focus()
+
+  document.addEventListener('keydown', validateEditClass);
+}
+editClassButton.addEventListener('click', editClassEvent)
+
+copyHtmlButton.addEventListener('click', (e) => {
+  if (e) e.stopPropagation()
+  navigator.clipboard.writeText(
+    table.querySelector('table').outerHTML.replaceAll(/ contenteditable=".*"/g, '')
+  )
+  copyHtmlButton.innerText = 'ok'
+  setTimeout(() => { copyHtmlButton.innerText = 'cp' }, 1200)
+})
+
+
+document.addEventListener('keydown', e => {
+  console.log(e.keyCode)
+  switch (e.keyCode) {
+    case 87: if (!addRowBeforeButton.disabled) addRowBeforeEvent(); break; // Z
+    case 65:  if (!addColBeforeButton.disabled) addColBeforeEvent(); break; // Q
+    case 83: if (!addRowAfterButton.disabled)  addRowAfterEvent();  break; // S
+    case 68: if (!addColAfterButton.disabled)  addColAfterEvent();  break; // D
+    case 77: if (!mergeButton.disabled)        mergeEvent();        break; // M
+    case 85: if (!unmergeButton.disabled)      unmergeEvent();      break; // U
+    case 72: if (!headSwitch.disabled)         headSwitchEvent();   break; // H
+    case 67:  if (!editClassButton.disabled)    editClassEvent();    break; // C
+
+    // case 37: // left
+    //   break;
+    // case 38: // up
+    //   break;
+    // case 39: // right
+    //   break;
+    // case 40: // down
+    //   break;
+  }
+})
+
+document.addEventListener('mouseup', () => {
+  selection.ongoing = false
+})
+document.addEventListener('click', (e) => {
+
+  // remove class input
+  if (e.target != textInput) {
+    textInput.value = 0
+    textInput.hidden = true
+    document.removeEventListener('keydown', validateEditClass);
+  }
+
+  // stop selection
+  if (!table.contains(e.target) && !header.contains(e.target) && e.target != textInput) {
+    selection.active = false
+    selection.update()
+  }
 })
