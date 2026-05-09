@@ -2,38 +2,30 @@
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" href="style.css">
+  <!-- <script type="module" src="script.js"></script> -->
   <script type="module" src="script.js"></script>
 </head>
 <body>
   <main>
-    <!-- <svg width="1em" height="1em" viewBox="0 0 24 24">
-      <path d="M 2,12 H 22" stroke="gray" stroke-width="5"/>
-      <path d="M 12,2 V 22" stroke="gray" stroke-width="5"/>
-    </svg>
-    <svg width="1em" height="1em" viewBox="0 0 24 24">
-      <circle cx="3" cy="3" r="3" fill="gray"/>
-      <circle cx="3" cy="21" r="3" fill="gray"/>
-      <circle cx="21" cy="3" r="3" fill="gray"/> 
-      <circle cx="21" cy="21" r="3" fill="gray"/>
-    </svg> -->
-    <header>
-      <button id="add-row-before" disabled>+r</button>
-      <button id="add-row-after" disabled>r+</button>
-      <button id="add-col-before" disabled>+c</button>
-      <button id="add-col-after" disabled>c+</button>
-      <button id="delete-row" disabled>r-</button>
-      <button id="delete-col" disabled>c-</button>
-      <button id="merge-button" disabled>m</button>
-      <button id="unmerge-button" disabled>u</button>
-      <button id="head-switch" disabled>th</button>
-      <button id="edit-class" disabled>cl</button>
-      <button id="copy-html">cp</button>
-    </header>
-    <div id="input-container">
-      <input id="text-input" type="text" hidden>
+    <div id="buttons">
+      <button id="add-row-before" disabled>addRowBefore</button>
+      <button id="add-row-after" disabled>addRowAfter</button>
+      <button id="add-col-before" disabled>addColumnBefore</button>
+      <button id="add-col-after" disabled>addColumnAfter</button>
+      <button id="delete-row" disabled>deleteRows</button>
+      <button id="delete-col" disabled>deleteColumns</button>
+      <button id="merge-button" disabled>mergeCelss</button>
+      <button id="unmerge-button" disabled>unmergeCells</button>
+      <button id="head-switch" disabled>switchHead</button>
+      <button id="copy-html">copyToClipboard</button>
+    </div>
+    <div id="classes">
+      <div>
+        <button id="class-button" disabled>addClass</button>
+        <button id="add-class" hidden>+</button>
+      </div>
     </div>
     <div id="table-container">
-      <div id="selection"></div>
       <table>
         <tbody>
           <tr>

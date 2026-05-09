@@ -1,21 +1,7 @@
-const header = document.querySelector('header')
 const table = document.getElementById('table-container')
-const selectionEl = document.getElementById('selection')
-const textInput = document.getElementById('text-input')
+const classes = document.getElementById('classes')
 
-const addRowBeforeButton = document.getElementById('add-row-before')
-const addRowAfterButton = document.getElementById('add-row-after')
-const addColBeforeButton = document.getElementById('add-col-before')
-const addColAfterButton = document.getElementById('add-col-after')
-const deleteRowButton = document.getElementById('delete-row')
-const deleteColButton = document.getElementById('delete-col')
-const mergeButton = document.getElementById('merge-button')
-const unmergeButton = document.getElementById('unmerge-button')
-const headSwitch = document.getElementById('head-switch')
-const editClassButton = document.getElementById('edit-class')
-const copyHtmlButton = document.getElementById('copy-html')
-
-let dummy = 9;
+const editClass = () => {}
 
 function* range(start, end=null, step=1) { 
   if (end === null) for (let i=0; i<start; i+=step) yield i 
@@ -30,7 +16,7 @@ const rows = () => [...table.querySelectorAll('tr')]
 const rowCells = (row) => [...row.querySelectorAll('td, th')]
 
 const rowIndex = (cell) => {
-  return rows().findIndex(r => r == cell.parentElement)
+  return rows().findIndex(r => r === cell.parentElement)
 }
 const colIndexCache = new Map()
 const colIndex = (cell) => {
@@ -58,84 +44,138 @@ const colIndex = (cell) => {
   return j
 }
 
-const rowMinMaxIndex = (i, aj=null, bj=null) => {
-  let min=i, max=i
-  // console.log('init:', i, aj, bj)
+const rowHasTopBorder = (i, firstCol, lastCol) => {
+  let min = i
+  for (const [ri, r] of rows().entries()) {
+    if (ri >= i) break
+    const imax = Math.max(...rowCells(r).map(c => firstCol<=colIndex(c)+c.colSpan-1 && colIndex(c)<=lastCol ? ri+c.rowSpan-1 : 0))
+    if (imax >= i && ri < min) min = ri
+  }
+  return min === i
+}
+const rowHasBottomBorder = (i, firstCol, lastCol) => {
+  let max = i
   for (const [ri, r] of rows().entries()) {
     if (ri > i) break
-    const imax = aj === null || bj === null 
-      ? Math.max(...rowCells(r).map(c => ri+c.rowSpan-1))
-      : Math.max(...rowCells(r).map(c => aj<=colIndex(c)+c.colSpan-1 && colIndex(c)<=bj ? ri+c.rowSpan-1 : 0))
-    // console.log('loop:', ri, r, rowCells(r).map(c => (cj => aj<=cj+c.colSpan-1 && cj<=bj ? ri+c.rowSpan-1 : 0)(colIndex(c)) ))
-    if (imax >= i && ri < min) min = ri
+    const imax = Math.max(...rowCells(r).map(c => firstCol<=colIndex(c)+c.colSpan-1 && colIndex(c)<=lastCol ? ri+c.rowSpan-1 : 0))
     if (imax > max) max = imax
   }
-  // console.log('retn:', min, max)
-  return {min, max}
+  return max === i
 }
-const colMinMaxIndex = (j, ai=null, bi=null) => {
-  let min=j, max=j
-  // console.log('init:', j, ai, bi)
+const colHasLeftBorder = (j, firstRow, lastRow) => {
+  let min = j
   for (const [ri, r] of rows().entries()) {
     for (const c of rowCells(r)) {
       const cj = colIndex(c)
-      if (ai !== null && bi !== null && !(ai<=ri+c.rowSpan-1 && ri<=bi)) continue
-      // console.log('loop:', ri, r, cj, c, c.colSpan)
-      if (cj > j) break
+      if (firstRow > ri+c.rowSpan-1 || ri > lastRow) continue
+      if (cj >= j) break
       if (cj+c.colSpan > j && cj < min) min = cj
+    }
+  }
+  return min === j
+}
+const colHasRightBorder = (j, firstRow, lastRow) => {
+  let max = j
+  for (const [ri, r] of rows().entries()) {
+    for (const c of rowCells(r)) {
+      const cj = colIndex(c)
+      if (firstRow > ri+c.rowSpan-1 || ri > lastRow) continue
+      if (cj > j) break
       if (cj+c.colSpan-1 > max) max = cj+c.colSpan-1
     }
   }
-  // console.log('retn:', min, max)
-  return {min, max}
-}
-const rowHasBorders = (i, aj=null, bj=null) => {
-  const {min, max} = rowMinMaxIndex(i, aj, bj)
-  // console.log('rowb:', i, aj, bj, min==i, max==i)
-  return {top: min == i, bottom: max == i}
-}
-const colHasBorders = (j, ai=null, bi=null) => {
-  const {min, max} = colMinMaxIndex(j, ai, bi)
-  // console.log('colb:', j, ai, bi, min==j, max==j)
-  return {left: min == j, right: max == j}
+  return max === j
 }
 
-const topBorder =    (i, aj, bj) => [...range(i+1)].findLast(ii => rowHasBorders(ii, aj, bj).top)
-const leftBorder =   (j, ai, bi) => [...range(j+1)].findLast(jj => colHasBorders(jj, ai, bi).left)
-const bottomBorder = (i, aj, bj) => [...range(i, rowCount())].find(ii => rowHasBorders(ii, aj, bj).bottom)
-const rightBorder =  (j, ai, bi) => [...range(j, colCount())].find(jj => colHasBorders(jj, ai, bi).right)
+const topBorder =    (i, firstCol, lastCol) => [...range(i+1)].findLast(ii => rowHasTopBorder(ii, firstCol, lastCol))
+const leftBorder =   (j, firstRow, lastRow) => [...range(j+1)].findLast(jj => colHasLeftBorder(jj, firstRow, lastRow))
+const bottomBorder = (i, firstCol, lastCol) => [...range(i, rowCount())].find(ii => rowHasBottomBorder(ii, firstCol, lastCol))
+const rightBorder =  (j, firstRow, lastRow) => [...range(j, colCount())].find(jj => colHasRightBorder(jj, firstRow, lastRow))
 
-const selection = { 
-  active: false,
-  ongoing: false,
-  start: null,
-  end: null,
-  firstRow: null,
-  firstCol: null,
-  lastRow: null,
-  lastCol: null,
-  cells: [],
+const actions = []
+const selections = {
+  list: [],
+  forEach(callback) { this.list.forEach(callback) },
+  last() { return this.list?.[this.list.length-1] },
+  clear() { 
+    while(this.list.length) this.list[0].delete()
+    actions.forEach(a => { a.element.disabled = !a.condition() })
+  },
+  any() { return !!this.list.length },
   update() {
-    if (!this.active) {
-      selectionEl.style.display = 'none';
-      addRowBeforeButton.disabled = true
-      addRowAfterButton.disabled = true
-      addColBeforeButton.disabled = true
-      addColAfterButton.disabled = true
-      deleteRowButton.disabled = true
-      deleteColButton.disabled = true
-      mergeButton.disabled = true
-      unmergeButton.disabled = true
-      headSwitch.disabled = true
-      editClassButton.disabled = true
-      return
-    }
+    classes.querySelectorAll('.class-item').forEach(ci => ci.remove())
+    if (!this.any()) return
+    const classList = [...this.last().cells[0].classList]
+    classList.filter(cl => this.list.every(s => s.cells.every(c => c.classList.contains(cl)))).forEach(cl => {
+      const editButton = document.createElement('BUTTON')
+      editButton.textContent = cl
 
-    if (this.start == this.end) {
+      const deleteButton = document.createElement('BUTTON')
+      deleteButton.textContent = '×'
+
+      const container = document.createElement('DIV')
+      container.classList.add('class-item')
+      container.appendChild(editButton)
+      container.appendChild(deleteButton)
+      classes.appendChild(container)
+
+      editButton.addEventListener('click', editClass)
+      deleteButton.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.forEach(s => s.cells.forEach(c => c.classList.remove(cl)))
+        container.remove()
+      })
+    })
+    if (this.list.every(s => s.cells.every(c => c.tagName === 'TH'))) {
+      const editButton = document.createElement('BUTTON')
+      editButton.textContent = 'th'
+
+      const deleteButton = document.createElement('BUTTON')
+      deleteButton.textContent = '×'
+
+      const container = document.createElement('DIV')
+      container.classList.add('class-item')
+      container.classList.add('class-th')
+      container.appendChild(editButton)
+      container.appendChild(deleteButton)
+      classes.firstElementChild.insertAdjacentElement('afterend', container)
+
+      editButton.addEventListener('click', editClass)
+      deleteButton.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.forEach(s => s.cells.forEach(c => {
+          const newCell = createCell('TD')
+          newCell.textContent = c.textContent
+          c.parentElement.replaceChild(newCell, c)
+        }))
+        container.remove()
+      })
+    }
+  }
+}
+
+class Selection {
+  constructor() {
+    selections.list.push(this)
+    this.element = document.createElement('DIV')
+    this.element.classList.add('selection')
+    table.prepend(this.element)
+
+    this.ongoing = false
+    this.start = null
+    this.end = null
+    this.firstRow = null
+    this.firstCol = null
+    this.lastRow = null
+    this.lastCol = null
+    this.cells = []
+  }
+  update() {
+    if (this.start === this.end) {
       this.firstRow = rowIndex(this.start)
-      this.lastRow = this.firstRow+this.start.rowSpan-1
+      this.lastRow  = this.firstRow + this.start.rowSpan - 1
       this.firstCol = colIndex(this.start)
-      this.lastCol = this.firstCol+this.start.colSpan-1
+      this.lastCol  = this.firstCol + this.start.colSpan - 1
     } else {
       const si = rowIndex(this.start)
       const sj = colIndex(this.start)
@@ -144,12 +184,12 @@ const selection = {
 
       const mini = Math.min(si, ei)
       const minj = Math.min(sj, ej)
-      const maxi = Math.max(si+this.start.rowSpan, ei+this.end.rowSpan) - 1
-      const maxj = Math.max(sj+this.start.colSpan, ej+this.end.colSpan) - 1
+      const maxi = Math.max(si + this.start.rowSpan, ei + this.end.rowSpan) - 1
+      const maxj = Math.max(sj + this.start.colSpan, ej + this.end.colSpan) - 1
 
       let nextFirstRow, nextFirstCol, nextLastRow, nextLastCol
       while (
-          this.firstRow != (nextFirstRow = topBorder(mini, nextFirstCol, nextLastCol)) 
+            this.firstRow != (nextFirstRow = topBorder(mini, nextFirstCol, nextLastCol)) 
         || this.firstCol != (nextFirstCol = leftBorder(minj, nextFirstRow, nextLastRow))
         || this.lastRow  != (nextLastRow  = bottomBorder(maxi, nextFirstCol, nextLastCol))
         || this.lastCol  != (nextLastCol  = rightBorder(maxj, nextFirstRow, nextLastRow))
@@ -160,90 +200,79 @@ const selection = {
         this.lastCol  = nextLastCol
       }
     }
-
-    selectionEl.style.display = 'block'
-    selectionEl.style.left    = `${this.firstCol*3-.20}rem`
-    selectionEl.style.top     = `${this.firstRow*2-.20}rem`
-    selectionEl.style.width   = `${(this.lastCol-this.firstCol+1)*3}rem`
-    selectionEl.style.height  = `${(this.lastRow-this.firstRow+1)*2}rem`
-
     this.cells = rows().reduce(
-      (cs, r, ri) => cs.concat(selection.firstRow<=ri && ri<=selection.lastRow
-        ? rowCells(r).filter(c => selection.firstCol<=colIndex(c) && colIndex(c)<=selection.lastCol)
+      (cs, r, ri) => cs.concat(this.firstRow<=ri && ri<=this.lastRow
+        ? rowCells(r).filter(c => this.firstCol<=colIndex(c) && colIndex(c)<=this.lastCol)
         : []
       ), []
     )
 
-    mergeButton.disabled = this.start === this.end
-    unmergeButton.disabled = this.cells.find(c => c.rowSpan!=1 || c.colSpan!=1) === undefined
-    addColAfterButton.disabled =  false
-    addColBeforeButton.disabled = false
-    addRowAfterButton.disabled =  false
-    addRowBeforeButton.disabled = false
-    deleteRowButton.disabled =    false
-    deleteColButton.disabled =    false
-    headSwitch.disabled =         false
-    editClassButton.disabled =    false
+    this.element.style.left    = `${this.firstCol*3-.20}rem`
+    this.element.style.top     = `${this.firstRow*2-.20}rem`
+    this.element.style.width   = `${(this.lastCol-this.firstCol+1)*3}rem`
+    this.element.style.height  = `${(this.lastRow-this.firstRow+1)*2}rem`
+
+    actions.forEach(a => { a.element.disabled = !a.condition() })
+    selections.update()
+  }
+  delete() {
+    this.element.remove()
+    selections.list.splice(selections.list.indexOf(this), 1)
+    actions.forEach(a => a.element.disabled = !a.condition())
   }
 }
 
 const setCellListeners = (cell) => {
-  const setEditable = () => {
-    selection.ongoing = false
-    cell.contentEditable = true
-    cell.focus()
-  }
-
   cell.addEventListener('mousedown', (e) => {
-
-    if (e.altKey && selection.active) {
-      // multi selection !!
-    }
-
-    cell.addEventListener('mouseup', setEditable)
-
-    selection.active = false
-    selection.ongoing = true
-    selection.update()
-    setTimeout(() => {
-      cell.removeEventListener('mouseup', setEditable)
-      if (selection.ongoing) {
+    e.stopPropagation()
+    if (e.shiftKey) {
+      if (!selections.any() || e.metaKey) {
+        const selection = selections.list.find(s => s.start === cell)
+        if (selection) {
+          selection.delete()
+          selections.update()
+          return
+        }
         cell.contentEditable = false
-        selection.active = true
-        selection.start = cell
-        const hoveredElement = [...document.querySelectorAll(':hover')].pop()
-        selection.end = ['TD', 'TH'].includes(hoveredElement?.tagName) ? hoveredElement : cell
-        selection.update()
+      } else {
+        selections.clear()
       }
-    }, 300)
-  })
 
-  cell.addEventListener('dblclick', () => {
-      selection.active = false
-      selection.ongoing = false
+      const selection = new Selection()
+      selection.ongoing = true
+      selection.start = cell
+      selection.end = cell
       selection.update()
+    } else {
+      selections.clear()
       cell.contentEditable = true
       cell.focus()
-
-      const docRange = document.createRange();
-      docRange.selectNodeContents(cell);
-      const winSelection = window.getSelection();
-      winSelection.removeAllRanges();
-      winSelection.addRange(docRange);
+    }
   })
-
-  cell.addEventListener('mouseenter', () => {
+  cell.addEventListener('mouseenter', (e) => {
+    if (!e.shiftKey) return
+    if (!selections.any()) return
+    const selection = selections.last()
     if (!selection.ongoing) return
     selection.end = cell
     selection.update()
   })
-
   cell.addEventListener('blur', () => {
     cell.contentEditable = false
   })
 }
 cells().forEach(setCellListeners)
 
+document.addEventListener('mouseup', () => {
+  if (!selections.any()) return
+  selections.last().ongoing = false
+})
+document.addEventListener('click', (e) => {
+  if (table.contains(e.target)) return
+  selections.clear()
+})
+
+let dummy = 9
 const createCell = (tag) => {
   const cell = document.createElement(tag)
   cell.innerText = String(dummy++)
@@ -275,84 +304,128 @@ const insertColumn = (j) => {
   })
 }
 
-const addColBeforeEvent = (e) => {
-  if (e) e.stopPropagation()
-  insertColumn(selection.firstCol)
-  colIndexCache.clear()
-  selection.update()
-}
-addColBeforeButton.addEventListener('click', addColBeforeEvent)
+actions.push({
+  element: document.getElementById('add-row-before'),
+  condition() { return selections.any() },
+  modKey: 'Meta',
+  key: 75,
+  callback(e) {
+    if (e) e.stopPropagation()
+    selections.forEach(s => {
+      insertRow(s.firstRow)
+      colIndexCache.clear()
+      selections.forEach(ss => ss.update())
+    })
+  }
+})
 
-const addColAfterEvent = (e) => {
-  if (e) e.stopPropagation()
-  insertColumn(selection.lastCol+1)
-  colIndexCache.clear()
-}
-addColAfterButton.addEventListener('click', addColAfterEvent)
+actions.push({
+  element: document.getElementById('add-row-after'),
+  condition() { return selections.any() },
+  modKey: 'Meta',
+  key: 74,
+  callback(e) {
+    if (e) e.stopPropagation()
+    selections.forEach(s => {
+      insertRow(s.lastRow+1)
+      colIndexCache.clear()
+      selections.forEach(ss => ss.update())
+    })
+  }
+})
 
-const addRowBeforeEvent = (e) => {
-  if (e) e.stopPropagation()
-  insertRow(selection.firstRow)
-  colIndexCache.clear()
-  selection.update()
-}
-addRowBeforeButton.addEventListener('click', addRowBeforeEvent)
+actions.push({
+  element: document.getElementById('add-col-before'),
+  condition() { return selections.any() },
+  modKey: 'Meta',
+  key: 72,
+  callback(e) {
+    if (e) e.stopPropagation()
+    selections.forEach(s => {
+      insertColumn(s.firstCol)
+      colIndexCache.clear()
+      selections.forEach(ss => ss.update())
+    })
+  }
+})
 
-const addRowAfterEvent = (e) => {
-  if (e) e.stopPropagation()
-  insertRow(selection.lastRow+1)
-  colIndexCache.clear()
-}
-addRowAfterButton.addEventListener('click', addRowAfterEvent)
+actions.push({
+  element: document.getElementById('add-col-after'),
+  condition() { return selections.any() },
+  modKey: 'Meta',
+  key: 76,
+  callback(e) {
+    if (e) e.stopPropagation()
+    selections.forEach(s => {
+      insertColumn(s.lastCol+1)
+      colIndexCache.clear()
+      selections.forEach(ss => ss.update())
+    })
+  }
+})
 
-const deleteRowEvent = (e) => {
-  if (e) e.stopPropagation()
-  const deletedCells = cells().filter(c => {
-    const i = rowIndex(c)
-    return selection.firstRow <= i && i <= selection.lastRow
-  })
-  deletedCells.forEach(c => c.remove())
+actions.push({
+  element: document.getElementById('delete-row'),
+  condition() { return selections.any() },
+  modKey: null,
+  key: 8,
+  callback(e) {
+    if (e) e.stopPropagation()
+    selections.forEach(s => {
+      const deletedRows = rows().filter((r, ri) => s.firstRow <= ri && ri <= s.lastRow)
+      deletedRows.forEach(r => r.remove())
+    })
+    selections.clear()
+  }
+})
 
-  selection.active = false
-  // colIndexCache.clear()
-  selection.update()
-}
-deleteRowButton.addEventListener('click', deleteRowEvent)
+actions.push({
+  element: document.getElementById('delete-col'),
+  condition() { return selections.any() },
+  modKey: 'Meta',
+  key: 8,
+  callback(e) {  
+    if (e) e.stopPropagation()
+    const deletedCells = new Set()
+    cells().forEach(c => {
+      selections.forEach(s => {
+        const j = colIndex(c)
+        if (s.firstCol <= j && j <= s.lastCol) deletedCells.add(c)
+      })
+    })
+    Array.from(deletedCells).forEach(c => c.remove())
+    colIndexCache.clear()
+    selections.clear()
+  }
+})
 
-const deleteColEvent = (e) => {
-  if (e) e.stopPropagation()
-  const deletedCells = cells().filter(c => {
-    const j = colIndex(c)
-    return selection.firstCol <= j && j <= selection.lastCol
-  })
-  deletedCells.forEach(c => c.remove())
+actions.push({
+  element: document.getElementById('merge-button'),
+  condition() { return selections.list.length === 1 && selections.last().start !== selections.last().end },
+  modKey: 'Meta',
+  key: 77,  
+  callback(e) {
+    if (e) e.stopPropagation()
+    const selection = selections.last()
 
-  selection.active = false
-  colIndexCache.clear()
-  selection.update()
-}
-deleteColButton.addEventListener('click', deleteColEvent)
+    const mergedCells = cells().filter(c=> {
+      const i = rowIndex(c)
+      const j = colIndex(c)
+      return (selection.firstRow <= i && i <= selection.lastRow
+          && selection.firstCol <= j && j <= selection.lastCol)
+    })
+    mergedCells[0].setAttribute('rowspan', selection.lastRow-selection.firstRow+1)
+    mergedCells[0].setAttribute('colspan', selection.lastCol-selection.firstCol+1)
+    mergedCells.slice(1).forEach(c => c.remove())
+    colIndexCache.clear()
 
-const mergeEvent = (e) => {
-  if (e) e.stopPropagation()
-  selection.active = false
-  selection.update()
-
-  const mergedCells = cells().filter(c=> {
-    const i = rowIndex(c)
-    const j = colIndex(c)
-    return (selection.firstRow <= i && i <= selection.lastRow
-         && selection.firstCol <= j && j <= selection.lastCol)
-  })
-  mergedCells[0].setAttribute('rowspan', selection.lastRow-selection.firstRow+1)
-  mergedCells[0].setAttribute('colspan', selection.lastCol-selection.firstCol+1)
-  mergedCells.slice(1).forEach(c => c.remove())
-  colIndexCache.clear()
-}
-mergeButton.addEventListener('click', mergeEvent)
+    selection.end = selection.start
+    selection.update()
+  }
+})
 
 const unmergeCell = (cell) => {
-  if (cell.rowSpan==1 && cell.colSpan==1) return
+  if (cell.rowSpan===1 && cell.colSpan===1) return
   for (const _ of Array(cell.colSpan-1)) {
     cell.insertAdjacentElement('afterend', createCell(cell.tagName))
   }
@@ -389,112 +462,113 @@ const unmergeCell = (cell) => {
   cell.rowSpan = 1
   cell.colSpan = 1
 }
-const unmergeEvent = (e) => {
-  if (e) e.stopPropagation()
-  selection.active = false
-  selection.update()
-
-  selection.cells.forEach(unmergeCell)
-  colIndexCache.clear()
-}
-unmergeButton.addEventListener('click', unmergeEvent)
-
-const headSwitchEvent = (e) => {
-  if (e) e.stopPropagation()
-  const allHeads = selection.cells.every(c => c.tagName == 'TH')
-  if (allHeads) {
-    selection.cells.forEach(cell => {
-      const newCell = createCell('TD')
-      newCell.textContent = cell.textContent
-      cell.parentElement.replaceChild(newCell, cell)
-    })
-  } else {
-    selection.cells.forEach(cell => {
-      if (cell.tagName == 'TH') return
-      const newCell = createCell('TH')
-      newCell.textContent = cell.textContent
-      cell.parentElement.replaceChild(newCell, cell)
-    })
+actions.push({
+  element: document.getElementById('unmerge-button'),
+  condition() { return selections.any() && selections.list.some(s => s.cells.some(c => c.rowSpan!=1 || c.colSpan!=1)) },
+  modKey: 'Meta',
+  key: 85,  
+  callback(e) {  
+    if (e) e.stopPropagation()
+    selections.forEach(s => s.cells.forEach(unmergeCell))
+    colIndexCache.clear()
   }
-
-  // update selection cells
-  selection.cells = rows().reduce(
-    (cs, r, ri) => cs.concat(selection.firstRow<=ri && ri<=selection.lastRow
-      ? rowCells(r).filter(c => selection.firstCol<=colIndex(c) && colIndex(c)<=selection.lastCol)
-      : []
-    ), []
-  )
-  selection.start = selection.cells[0]
-  selection.end = selection.cells[selection.cells.length-1]
-}
-headSwitch.addEventListener('click', headSwitchEvent)
-
-const validateEditClass = (e) => {
-  if (e.keyCode !== 13) return
-
-  selection.start.className = textInput.value
-  textInput.value = 0
-  textInput.hidden = true
-  document.removeEventListener('keydown', validateEditClass);
-}
-const editClassEvent = (e) => {
-  if (e) e.stopPropagation()
-  textInput.hidden = false
-  textInput.value = selection.start.className
-  textInput.focus()
-
-  document.addEventListener('keydown', validateEditClass);
-}
-editClassButton.addEventListener('click', editClassEvent)
-
-copyHtmlButton.addEventListener('click', (e) => {
-  if (e) e.stopPropagation()
-  navigator.clipboard.writeText(
-    table.querySelector('table').outerHTML.replaceAll(/ contenteditable=".*"/g, '')
-  )
-  copyHtmlButton.innerText = 'ok'
-  setTimeout(() => { copyHtmlButton.innerText = 'cp' }, 1200)
 })
+
+const addClassButton = document.getElementById('add-class')
+const classInput = document.getElementById('class-button')
+const stopClassEdition = () => {
+  classInput.textContent = 'addClass'
+  classInput.blur()
+  addClassButton.hidden = true
+  initAction(classAction)
+  selections.update()
+  document.removeEventListener('keydown', addClass)
+  classAction.element.removeEventListener('blur', stopClassEdition)
+  actions.forEach(a => a.element.disabled = !a.condition())
+}
+const addClass = (e) => {
+  if (e instanceof KeyboardEvent && e.keyCode !== 13) return
+  if (e instanceof PointerEvent) e.stopPropagation()
+  const className = classInput.textContent
+  if (className === 'th' | className === 'TH') {
+    selections.forEach(s => s.cells.forEach((c, ci) => {
+      const newCell = createCell('TH')
+      newCell.textContent = c.textContent
+      newCell.classList = c.classList
+      c.parentElement.replaceChild(newCell, c)
+      s.cells[ci] = newCell
+    }))
+  } else {
+    selections.forEach(s => s.cells.forEach(c => c.classList.add(className)))
+  }
+  stopClassEdition()
+}
+addClassButton.addEventListener('click', addClass)
+const classAction = {
+  element: classInput,
+  condition() { return selections.any() },
+  modKey: 'Meta',
+  key: 67,
+  callback(e) {
+    if (e) e.stopPropagation()
+    classAction.element.removeEventListener('click', classAction.callback)
+
+    actions.forEach(a => { if (a !== classAction) a.element.disabled = true })
+    classAction.element.textContent = ''
+    classAction.element.contentEditable = true
+    classAction.element.focus()
+    addClassButton.hidden = false
+    document.addEventListener('keydown', addClass)
+    classAction.element.addEventListener('blur', stopClassEdition)
+  }
+}
+actions.push(classAction)
+
+const initAction = a => {
+  a.element.addEventListener('click', a.callback)
+  let modKey = ''
+  switch (a.modKey) {
+    case 'Meta':    modKey = '⌘'; break;
+    case 'Shift':   modKey = '⇧'; break;
+    case 'Alt':     modKey = '⌥'; break;
+    case 'Control': modKey = '⌃'; break;
+  }
+  let key = ''
+  switch (a.key) {
+    case 37: key = '←'; break;
+    case 38: key = '↑'; break;
+    case 39: key = '→'; break;
+    case 40: key = '↓'; break;
+    case 8:  key = '⌫'; break;
+    default: key = String.fromCharCode(a.key)
+  }
+  const span = document.createElement('SPAN')
+  span.classList.add('key')
+  span.textContent = modKey + key
+  a.element.appendChild(span)
+}
+actions.forEach(initAction)
 
 
 document.addEventListener('keydown', e => {
-  console.log(e.keyCode)
-  switch (e.keyCode) {
-    case 87: if (!addRowBeforeButton.disabled) addRowBeforeEvent(); break; // Z
-    case 65:  if (!addColBeforeButton.disabled) addColBeforeEvent(); break; // Q
-    case 83: if (!addRowAfterButton.disabled)  addRowAfterEvent();  break; // S
-    case 68: if (!addColAfterButton.disabled)  addColAfterEvent();  break; // D
-    case 77: if (!mergeButton.disabled)        mergeEvent();        break; // M
-    case 85: if (!unmergeButton.disabled)      unmergeEvent();      break; // U
-    case 72: if (!headSwitch.disabled)         headSwitchEvent();   break; // H
-    case 67:  if (!editClassButton.disabled)    editClassEvent();    break; // C
-
-    // case 37: // left
-    //   break;
-    // case 38: // up
-    //   break;
-    // case 39: // right
-    //   break;
-    // case 40: // down
-    //   break;
-  }
-})
-
-document.addEventListener('mouseup', () => {
-  selection.ongoing = false
-})
-document.addEventListener('click', (e) => {
-
-  // remove class input
-  if (e.target != textInput) {
-    textInput.value = 0
-    textInput.hidden = true
-    document.removeEventListener('keydown', validateEditClass);
-  }
-
-  // stop selection
-  if (!table.contains(e.target) && !header.contains(e.target) && e.target != textInput) {
-    selection.active = false
-    selection.update()
-  }
+  actions.forEach(a => {
+    if (a.element.disabled) return
+    if (
+      (
+           a.modKey 
+        && e.getModifierState(a.modKey) 
+        && e.keyCode === a.key
+      ) || (
+           !a.modKey 
+        && !e.getModifierState('Meta')
+        && !e.getModifierState('Shift')
+        && !e.getModifierState('Alt')
+        && !e.getModifierState('Control')
+        && e.keyCode === a.key
+      )
+    ) {
+      e.preventDefault()
+      a.callback()
+    }
+  })
 })
