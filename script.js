@@ -679,7 +679,7 @@ actions.push({
         selection.cells.insertSort(c, cellComp)
       })
     })
-    cache.clear('rowCells')
+    cache.clear('rowCells', 'colIndex')
     selection.update()
   }
 })

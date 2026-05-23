@@ -1,36 +1,36 @@
 @font-face {
   font-family: 'NeueCorp';
   font-weight: 200;
-  src: url('/fonts/PPNeueCorp-NormalUltralight.otf');
+  src: url('fonts/PPNeueCorp-NormalUltralight.otf');
 }
 @font-face {
   font-family: 'NeueCorp';
   font-weight: bold;
-  src: url('/fonts/PPNeueCorp-CompactMedium.otf');
+  src: url('fonts/PPNeueCorp-CompactMedium.otf');
 }
 @font-face {
   font-family: 'Noto Sans';
-  src: url('/fonts/NotoSans-VariableFont_wdth\,wght.ttf');
+  src: url('fonts/NotoSans-VariableFont_wdth\,wght.ttf');
 }
 @font-face {
   font-family: 'Lato';
   font-style: normal;
-  src: url('/fonts/Lato-Regular.ttf');
+  src: url('fonts/Lato-Regular.ttf');
 }
 @font-face {
   font-family: 'Lato';
   font-style: italic;
-  src: url('/fonts/Lato-Italic.ttf');
+  src: url('fonts/Lato-Italic.ttf');
 }
 @font-face {
   font-family: 'Bitter';
   font-style: normal;
-  src: url('/fonts/Bitter-VariableFont_wght.ttf');
+  src: url('fonts/Bitter-VariableFont_wght.ttf');
 }
 @font-face {
   font-family: 'Bitter';
   font-style: italic;
-  src: url('/fonts/Bitter-Italic-VariableFont_wght.ttf');
+  src: url('fonts/Bitter-Italic-VariableFont_wght.ttf');
 }
 
 :root {
@@ -170,12 +170,12 @@ table {
     outline-offset: calc(-1 * var(--selection-offset) + -.5 * var(--cell-border));
   }
 
-  [colspan="2"] { width:  calc(var(--cell-width) * 2); }
-  [rowspan="2"] { height: calc(var(--cell-height) * 2); }
-  [colspan="3"] { width:  calc(var(--cell-width) * 3); }
-  [rowspan="3"] { height: calc(var(--cell-height) * 3); }
-  [colspan="4"] { width:  calc(var(--cell-width) * 4); }
-  [rowspan="4"] { height: calc(var(--cell-height) * 4); }
+  [colspan="2"] { width:  calc(2 * var(--cell-width)); }
+  [rowspan="2"] { height: calc(2 * var(--cell-height)); }
+  [colspan="3"] { width:  calc(3 * var(--cell-width)); }
+  [rowspan="3"] { height: calc(3 * var(--cell-height)); }
+  [colspan="4"] { width:  calc(4 * var(--cell-width)); }
+  [rowspan="4"] { height: calc(4 * var(--cell-height)); }
 }
 
 #selection {
