@@ -4,47 +4,67 @@
   <link rel="stylesheet" href="style.css">
   <!-- <script type="module" src="script.js"></script> -->
   <script type="module" src="script.js"></script>
+  <style></style>
 </head>
 <body>
   <main>
     <div id="buttons">
+      <button id="select-all" disabled>selectAll</button>
       <button id="add-row-before" disabled>addRowBefore</button>
       <button id="add-row-after" disabled>addRowAfter</button>
       <button id="add-col-before" disabled>addColumnBefore</button>
       <button id="add-col-after" disabled>addColumnAfter</button>
+      <button id="delete-content" disabled>deleteContent</button>
       <button id="delete-row" disabled>deleteRows</button>
       <button id="delete-col" disabled>deleteColumns</button>
-      <button id="merge-button" disabled>mergeCelss</button>
+      <button id="merge-button" disabled>mergeCells</button>
       <button id="unmerge-button" disabled>unmergeCells</button>
-      <button id="head-switch" disabled>switchHead</button>
-      <button id="copy-html">copyToClipboard</button>
+      <!--<button id="head-switch" disabled>switchHead</button>-->
+      <button id="undo" disabled>undo</button>
+      <button id="save-file">saveFile</button>
+      <label for="load-file">loadFile<input id="load-file" type="file"></label>
     </div>
     <div id="classes">
-      <div>
-        <button id="class-button" disabled>addClass</button>
-        <button id="add-class" hidden>+</button>
+      <!--<button id="thead-button" disabled>addHead</button>-->
+      <button id="class-button" disabled>addClass</button>
+      <div hidden>
+        <input id="class-input" type="text">
+        <button id="add-class" disabled>+</button>
+      </div>
+      <div id="edit-class">
+        <button id="edit-class-bold">B</button>
+        <button id="edit-class-italic">I</button>
+        <button id="edit-class-underline">U</button>
+        <button id="edit-class-left-align">←</button>
+        <button id="edit-class-right-align">→</button>
+        <label for="edit-class-color">A<input id="edit-class-color" type="color" value="#000"></label>
+        <label for="edit-class-background">A<input id="edit-class-background" type="color" value="#fff"></label>
+        <button id="edit-class-validate">×</button>
       </div>
     </div>
     <div id="table-container">
       <table>
         <tbody>
           <tr>
-            <td>0</td>
-            <td>1</td>
-            <td>2</td>
+            <td></td>
+            <td></td>
+            <td></td>
           </tr>
           <tr>
-            <td>3</td>
-            <td>4</td>
-            <td>5</td>
+            <td></td>
+            <td></td>
+            <td></td>
           </tr>
           <tr>
-            <td>6</td>
-            <td>7</td>
-            <td>8</td>
+            <td></td>
+            <td></td>
+            <td></td>
           </tr>
         </tbody>
       </table>
+      <svg id="selection" width="0" height="0" viewBox="0 0 0 0">
+        <path fill="none" stroke-linecap="square"/>
+      </svg>
     </div>
   </main>
 </body>

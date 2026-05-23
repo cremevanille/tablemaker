@@ -1,48 +1,62 @@
 @font-face {
   font-family: 'NeueCorp';
-  font-weight: lighter;
+  font-weight: 200;
   src: url('/fonts/PPNeueCorp-NormalUltralight.otf');
 }
 @font-face {
   font-family: 'NeueCorp';
   font-weight: bold;
-  src: url('/fonts/PPNeueCorp-CompactMedium.otf')
+  src: url('/fonts/PPNeueCorp-CompactMedium.otf');
 }
 @font-face {
   font-family: 'Noto Sans';
-  src: url('/fonts/NotoSans-VariableFont_wdth\,wght.ttf')
+  src: url('/fonts/NotoSans-VariableFont_wdth\,wght.ttf');
 }
 @font-face {
   font-family: 'Lato';
   font-style: normal;
-  src: url('/fonts/Lato-Regular.ttf')
+  src: url('/fonts/Lato-Regular.ttf');
 }
 @font-face {
   font-family: 'Lato';
   font-style: italic;
-  src: url('/fonts/Lato-Italic.ttf')
+  src: url('/fonts/Lato-Italic.ttf');
 }
 @font-face {
-  font-family: 'JetBrains';
-  src: url('/fonts/JetBrainsMono[wght].ttf')
+  font-family: 'Bitter';
+  font-style: normal;
+  src: url('/fonts/Bitter-VariableFont_wght.ttf');
+}
+@font-face {
+  font-family: 'Bitter';
+  font-style: italic;
+  src: url('/fonts/Bitter-Italic-VariableFont_wght.ttf');
 }
 
-
 :root {
-  font-size: 20px;
-  font-family: sans-serif;
+  --font-size: 24px;
+  --cell-width: 3rem;
+  --cell-height: 2rem;
+  --cell-border: 1.2px;
+  --selection-offset: 3.6px;
+  --selection-border: 1.6px;
+  --selection-color: #FF546E;
+
+  font: var(--font-size) sans-serif;
 }
 
 body {
-  background: #333;
-  margin: 2rem;
+  background: #000;
+  box-sizing: border-box;
+  height: 100vh;
+  margin: 0;
+  padding: 1rem;
+
   display: grid;
-  place-items: center;
+  grid-template: 1fr / 1fr;
 }
 main {
   background: #fff;
-  width: 80vw;
-  height: 80vh;
   border-radius: .5rem;
 
   display: grid;
@@ -64,106 +78,110 @@ main {
   flex-direction: column;
   gap: .15rem;
 
-  div {
+  div:not([hidden]) {
     display: flex;
     gap: .15rem;
   }
-  .class-item:not(.class-th) {
+  .class-item:not(.class-common) :first-child {
     font-style: italic;
   }
 }
 
-button {
-  font: inherit;
-  font-family: 'Lato';
-  font-size: .7rem;
+label, button, #class-input {
+  font: .7rem 'Lato';
   color: gray;
   background: transparent;
 
-  min-width: 1.075rem;
-  width: fit-content;
   padding: .1rem .2rem;
   border: .06rem solid lightgray;
   border-radius: 0.25rem;
+}
+input:not(#class-input) { display: none; }
+#class-input {
+  width: 3rem;
+  outline: none;
+}
+label, button {
+  min-width: 1.075rem;
+  width: fit-content;
 
   .key {
     margin-left: .1rem;
-    font-family: sans-serif;
     font-size: .5rem;
     color: lightgray;
   }
+  &:hover { cursor: pointer; }
+}
+button:disabled { color: lightgray; }
+label:has(:disabled) { color: lightgray; }
 
-  &:disabled {
-    display: none;
-    color: lightgray;
-  }
-  &:hover:not(:disabled) {
-    cursor: pointer;
-  }
-  &:focus {
-    outline: none;
+#edit-class {
+  padding: .1106537rem .2rem;
+  border: .06rem solid lightgray;
+  border-radius: 0.25rem;
+  button, label {
+    text-align: center;
+    padding: 0;
+    border: none;
+    font-family: 'Bitter';
   }
 }
-
-.gray {
+label:has(#edit-class-background) {
+  color: white;
   background-color: gray;
 }
+#edit-class-bold { font-weight: bold; }
+#edit-class-italic { font-style: italic; }
+#edit-class-underline { text-decoration: underline; }
 
-/* 
-#text-input {
-  width: 7rem;
-  padding: .2rem 1rem;
 
-  font-family: 'JetBrains';
-  font-size: .75rem;
-  border: .06rem solid #333;
-  border-radius: 0.25rem;
-
-  &:focus { outline: none; }
-} */
-
-#table-container { 
+#table-container {
   grid-area: 1/1/2/2;
   place-self: center;
-  position: relative; 
+  position: relative;
 }
 table {
   border-collapse: collapse;
-  th, th:focus {
-    outline: dashed 1px lightgray;
-    outline-offset: -3px;
-  }
+/* 
+  thead:after {
+      content:"";
+      display:block;
+      height: var(--tbody-padding);
+  } */
+
   td, th {
     text-align: center;
     align-content: center;
-    
-    font-family: 'NeueCorp', 'Noto Sans';
-    font-weight: 200;
-    font-size: .8rem;
 
-    width: 3rem;
-    height: 2rem;
+    font: .8rem 'NeueCorp', 'Noto Sans';
+
+    width:  var(--cell-width);
+    height: var(--cell-height);
     box-sizing: border-box;
     padding: 0;
 
-    border: .06rem solid #333;
-
+    border: var(--cell-border) solid #333;
     user-select: none;
   }
-  td:focus { outline: none; }
+  td { font-weight: 200; }
+  th { font-weight: bold; }
+  td:focus, th:focus {
+    outline: var(--selection-border) solid #34ADFF;
+    outline-offset: calc(-1 * var(--selection-offset) + -.5 * var(--cell-border));
+  }
 
-  [colspan="2"] { width: 6rem; }
-  [rowspan="2"] { height: 4rem; }
-  [colspan="3"] { width: 9rem; }
-  [rowspan="3"] { height: 6rem; }
-  [colspan="4"] { width: 12rem; }
-  [rowspan="4"] { height: 8rem; }
+  [colspan="2"] { width:  calc(var(--cell-width) * 2); }
+  [rowspan="2"] { height: calc(var(--cell-height) * 2); }
+  [colspan="3"] { width:  calc(var(--cell-width) * 3); }
+  [rowspan="3"] { height: calc(var(--cell-height) * 3); }
+  [colspan="4"] { width:  calc(var(--cell-width) * 4); }
+  [rowspan="4"] { height: calc(var(--cell-height) * 4); }
 }
 
-.selection {
+#selection {
   position: absolute;
+  --offset: calc((var(--cell-border)/2 - var(--selection-border)/2 - var(--selection-offset)));
+  top: var(--offset);
+  left: var(--offset);
   pointer-events: none;
-
-  padding: 0.16rem;
-  border: .08rem solid deepskyblue;
 }
